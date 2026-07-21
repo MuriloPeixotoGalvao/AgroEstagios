@@ -15,6 +15,8 @@ sealed class Screen {
     object SearchVacancy : Screen()
     object PublishVacancy : Screen()
     object CompanyDashboard : Screen()
+    object Favorites : Screen()
+    object Applications : Screen()
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -75,6 +77,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // State flow for my job applications (as candidate)
     val candidateApplications: StateFlow<List<JobApplication>> = _currentUser.flatMapLatest { user ->
         if (user != null && !user.isCompany) repository.getApplicationsForCandidate(user.id) else flowOf(emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val appliedVacancies: StateFlow<List<Vacancy>> = combine(allVacancies, candidateApplications) { vacancies, apps ->
+        val appliedIds = apps.map { it.vacancyId }.toSet()
+        vacancies.filter { it.id in appliedIds }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // State flow for my favorite vacancies (as candidate)
+    val favoriteVacancyIds: StateFlow<Set<Int>> = _currentUser.flatMapLatest { user ->
+        val candidateId = user?.id ?: 1
+        repository.getFavoritesForCandidate(candidateId).map { list -> list.map { it.vacancyId }.toSet() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val favoritedVacancies: StateFlow<List<Vacancy>> = combine(allVacancies, favoriteVacancyIds) { vacancies, favIds ->
+        vacancies.filter { it.id in favIds }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
@@ -344,6 +361,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun incrementVacancyViews(vacancyId: Int) {
         viewModelScope.launch {
             repository.incrementVacancyViews(vacancyId)
+        }
+    }
+
+    // Toggle favorite vacancy
+    fun toggleFavorite(vacancyId: Int) {
+        viewModelScope.launch {
+            val candidateId = _currentUser.value?.id ?: 1
+            val currentFavs = favoriteVacancyIds.value
+            if (vacancyId in currentFavs) {
+                repository.removeFavorite(vacancyId, candidateId)
+            } else {
+                repository.addFavorite(vacancyId, candidateId)
+            }
         }
     }
 }

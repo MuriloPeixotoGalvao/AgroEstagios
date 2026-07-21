@@ -39,4 +39,9 @@ class AppRepository(private val appDao: AppDao) {
     fun getApplicationsForVacancy(vacancyId: Int): Flow<List<JobApplication>> = appDao.getApplicationsForVacancy(vacancyId)
     fun getApplicationCountForVacancy(vacancyId: Int): Flow<Int> = appDao.getApplicationCountForVacancy(vacancyId)
     fun getAppliedCandidatesForVacancy(vacancyId: Int): Flow<List<User>> = appDao.getAppliedCandidatesForVacancy(vacancyId)
+
+    // Favorite operations
+    suspend fun addFavorite(vacancyId: Int, candidateId: Int): Long = appDao.addFavorite(FavoriteVacancy(vacancyId = vacancyId, candidateId = candidateId))
+    suspend fun removeFavorite(vacancyId: Int, candidateId: Int) = appDao.removeFavorite(vacancyId, candidateId)
+    fun getFavoritesForCandidate(candidateId: Int): Flow<List<FavoriteVacancy>> = appDao.getFavoritesForCandidate(candidateId)
 }

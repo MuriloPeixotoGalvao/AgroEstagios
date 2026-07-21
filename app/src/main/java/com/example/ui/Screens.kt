@@ -68,6 +68,7 @@ val Icons.Filled.Verified: ImageVector get() = Icons.Default.CheckCircle
 val Icons.Filled.Speed: ImageVector get() = Icons.Default.Info
 
 // Common custom visual helpers
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppHeader(
     title: String,
@@ -98,6 +99,7 @@ fun AppHeader(
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = SurfaceBright
         ),
+        windowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.shadow(1.dp)
     )
 }
@@ -134,17 +136,17 @@ fun BottomNavBar(
         )
 
         NavigationBarItem(
-            selected = currentScreen is Screen.SearchVacancy && !isCompany,
+            selected = currentScreen is Screen.Favorites && !isCompany,
             onClick = {
-                onNavigate(Screen.SearchVacancy)
+                onNavigate(Screen.Favorites)
             },
             icon = {
                 Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Vagas"
+                    imageVector = if (currentScreen is Screen.Favorites) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = "Favoritos"
                 )
             },
-            label = { Text("Vagas", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            label = { Text("Favoritos", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
             enabled = !isCompany,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Color.White,
@@ -156,8 +158,10 @@ fun BottomNavBar(
         )
 
         NavigationBarItem(
-            selected = false,
-            onClick = {},
+            selected = currentScreen is Screen.Applications && !isCompany,
+            onClick = {
+                onNavigate(Screen.Applications)
+            },
             icon = {
                 Icon(
                     imageVector = Icons.Default.WorkHistory,
@@ -165,6 +169,7 @@ fun BottomNavBar(
                 )
             },
             label = { Text("Candidaturas", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            enabled = !isCompany,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Color.White,
                 selectedTextColor = VagaGreen,
@@ -1602,6 +1607,7 @@ fun SearchVacancyScreen(
     val filterWorkMode by viewModel.filterWorkMode.collectAsState()
     val filteredVacancies by viewModel.filteredVacancies.collectAsState()
     val candidateApplications by viewModel.candidateApplications.collectAsState()
+    val favoriteVacancyIds by viewModel.favoriteVacancyIds.collectAsState()
 
     var showFiltersDialog by remember { mutableStateOf(false) }
 
@@ -1773,12 +1779,18 @@ fun SearchVacancyScreen(
                                         }
                                     }
 
-                                    Icon(
-                                        imageVector = if (hasApplied) Icons.Default.Bookmark else Icons.Outlined.Bookmark,
-                                        contentDescription = "Favoritar",
-                                        tint = if (hasApplied) VagaGreen else OutlineColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    val isFavorite = favoriteVacancyIds.contains(vacancy.id)
+                                    IconButton(
+                                        onClick = { viewModel.toggleFavorite(vacancy.id) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                            contentDescription = if (isFavorite) "Desfavoritar" else "Favoritar",
+                                            tint = if (isFavorite) AccentRose else OutlineColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -2535,3 +2547,506 @@ val VagaGreenLighter: Color
 
 // Helper mapping function in ViewModel for count reactive flows
 fun AppViewModel.getRepositoryCountFlow(vacancyId: Int) = repository.getApplicationCountForVacancy(vacancyId)
+
+// Favorites Screen
+@Composable
+fun FavoritesScreen(
+    viewModel: AppViewModel,
+    onVacancyDetailClick: (Vacancy) -> Unit
+) {
+    val favoritedVacancies by viewModel.favoritedVacancies.collectAsState()
+    val favoriteVacancyIds by viewModel.favoriteVacancyIds.collectAsState()
+
+    Scaffold(
+        topBar = {
+            AppHeader(
+                title = "Vagas Favoritas",
+                actions = {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.Default.Notifications, contentDescription = "Notificações", tint = VagaGreen)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceContainerHigh),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = OutlineColor)
+                    }
+                }
+            )
+        },
+        bottomBar = { BottomNavBar(Screen.Favorites, false, { viewModel.navigateTo(it) }) }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SurfaceBg)
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Suas vagas salvas",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = OnSurfaceText,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            if (favoritedVacancies.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape)
+                                .background(VagaGreenLighter),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FavoriteBorder,
+                                contentDescription = null,
+                                tint = VagaGreen,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Nenhuma vaga favoritada ainda",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OnSurfaceText,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Toque no ícone de coração em qualquer vaga para salvá-la aqui nos seus favoritos.",
+                            fontSize = 13.sp,
+                            color = OnSurfaceVariantText,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Button(
+                            onClick = { viewModel.navigateTo(Screen.SearchVacancy) },
+                            colors = ButtonDefaults.buttonColors(containerColor = VagaGreen),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Explorar Vagas", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(favoritedVacancies.size) { index ->
+                        val vacancy = favoritedVacancies[index]
+                        val isFavorite = favoriteVacancyIds.contains(vacancy.id)
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shadow(2.dp, RoundedCornerShape(12.dp)),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = SurfaceContainerLowest),
+                            border = BorderStroke(1.dp, SurfaceContainerHigh)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(VagaGreenLighter),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = vacancy.companyName.take(2).uppercase(),
+                                                fontWeight = FontWeight.Bold,
+                                                color = VagaGreen,
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = vacancy.title,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = OnSurfaceText,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "${vacancy.companyName} • ${vacancy.location}",
+                                                fontSize = 13.sp,
+                                                color = OnSurfaceVariantText,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = { viewModel.toggleFavorite(vacancy.id) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                            contentDescription = "Desfavoritar",
+                                            tint = if (isFavorite) AccentRose else OutlineColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(VagaGreenLighter)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(vacancy.workMode.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VagaGreen)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(SurfaceContainerLow)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(vacancy.contractType.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = OnSurfaceVariantText)
+                                    }
+
+                                    if (vacancy.salaryMin != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(AccentRose.copy(alpha = 0.15f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("R$ ${vacancy.salaryMin.toInt().div(1000)}k - ${vacancy.salaryMax?.toInt()?.div(1000)}k", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AccentRoseDark)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Prazo: ${vacancy.deadline}",
+                                        fontSize = 12.sp,
+                                        color = OutlineColor,
+                                        fontWeight = FontWeight.Medium
+                                    )
+
+                                    TextButton(
+                                        onClick = { onVacancyDetailClick(vacancy) }
+                                    ) {
+                                        Text("Ver detalhes", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VagaGreen)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Applications Screen
+@Composable
+fun ApplicationsScreen(
+    viewModel: AppViewModel,
+    onVacancyDetailClick: (Vacancy) -> Unit
+) {
+    val appliedVacancies by viewModel.appliedVacancies.collectAsState()
+    val favoriteVacancyIds by viewModel.favoriteVacancyIds.collectAsState()
+
+    Scaffold(
+        topBar = {
+            AppHeader(
+                title = "Minhas Candidaturas",
+                actions = {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.Default.Notifications, contentDescription = "Notificações", tint = VagaGreen)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceContainerHigh),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = OutlineColor)
+                    }
+                }
+            )
+        },
+        bottomBar = { BottomNavBar(Screen.Applications, false, { viewModel.navigateTo(it) }) }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SurfaceBg)
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Candidaturas em Andamento (${appliedVacancies.size})",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = OnSurfaceText,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            if (appliedVacancies.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape)
+                                .background(VagaGreenLighter),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.WorkHistory,
+                                contentDescription = null,
+                                tint = VagaGreen,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Nenhuma candidatura efetuada",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OnSurfaceText,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Candidate-se às vagas do seu interesse para acompanhar o processo seletivo por aqui.",
+                            fontSize = 13.sp,
+                            color = OnSurfaceVariantText,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Button(
+                            onClick = { viewModel.navigateTo(Screen.SearchVacancy) },
+                            colors = ButtonDefaults.buttonColors(containerColor = VagaGreen),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Buscar Vagas", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(appliedVacancies.size) { index ->
+                        val vacancy = appliedVacancies[index]
+                        val isFavorite = favoriteVacancyIds.contains(vacancy.id)
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shadow(2.dp, RoundedCornerShape(12.dp)),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = SurfaceContainerLowest),
+                            border = BorderStroke(1.dp, SurfaceContainerHigh)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(VagaGreenLighter),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = vacancy.companyName.take(2).uppercase(),
+                                                fontWeight = FontWeight.Bold,
+                                                color = VagaGreen,
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = vacancy.title,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = OnSurfaceText,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "${vacancy.companyName} • ${vacancy.location}",
+                                                fontSize = 13.sp,
+                                                color = OnSurfaceVariantText,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = { viewModel.toggleFavorite(vacancy.id) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                            contentDescription = "Favoritar",
+                                            tint = if (isFavorite) AccentRose else OutlineColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Status badge
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(VagaGreenLighter)
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = VagaGreen,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Candidatura Enviada",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = VagaGreen
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(SurfaceContainerLow)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(vacancy.workMode.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = OnSurfaceVariantText)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(SurfaceContainerLow)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(vacancy.contractType.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = OnSurfaceVariantText)
+                                    }
+
+                                    if (vacancy.salaryMin != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(AccentRose.copy(alpha = 0.15f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("R$ ${vacancy.salaryMin.toInt().div(1000)}k - ${vacancy.salaryMax?.toInt()?.div(1000)}k", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AccentRoseDark)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    TextButton(
+                                        onClick = { viewModel.withdrawFromJob(vacancy.id) }
+                                    ) {
+                                        Text("Desistir", fontSize = 12.sp, color = OutlineColor)
+                                    }
+
+                                    Button(
+                                        onClick = { onVacancyDetailClick(vacancy) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = VagaGreen),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Ver Detalhes", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -11,9 +11,10 @@ import androidx.room.RoomDatabase
         ExperienceItem::class,
         EducationItem::class,
         Vacancy::class,
-        JobApplication::class
+        JobApplication::class,
+        FavoriteVacancy::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

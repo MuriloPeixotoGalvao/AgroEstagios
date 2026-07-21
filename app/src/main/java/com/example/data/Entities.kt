@@ -64,3 +64,10 @@ data class JobApplication(
     val vacancyId: Int,
     val candidateId: Int
 )
+
+@Entity(tableName = "favorites", indices = [Index(value = ["vacancyId", "candidateId"], unique = true)])
+data class FavoriteVacancy(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val vacancyId: Int,
+    val candidateId: Int
+)

@@ -12,9 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,11 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.Vacancy
 import com.example.ui.*
-import com.example.ui.theme.MyApplicationTheme
-import com.example.ui.theme.OnSurfaceText
-import com.example.ui.theme.OnSurfaceVariantText
-import com.example.ui.theme.SurfaceBg
-import com.example.ui.theme.VagaGreen
+import com.example.ui.theme.*
 import com.example.viewmodel.AppViewModel
 import com.example.viewmodel.Screen
 
@@ -118,6 +112,28 @@ fun MainAppContainer(viewModel: AppViewModel) {
                     )
                 }
 
+                is Screen.Favorites -> {
+                    FavoritesScreen(
+                        viewModel = viewModel,
+                        onVacancyDetailClick = { vacancy ->
+                            viewModel.incrementVacancyViews(vacancy.id)
+                            selectedVacancyForDetail = vacancy
+                            showVacancyDetailDialog = true
+                        }
+                    )
+                }
+
+                is Screen.Applications -> {
+                    ApplicationsScreen(
+                        viewModel = viewModel,
+                        onVacancyDetailClick = { vacancy ->
+                            viewModel.incrementVacancyViews(vacancy.id)
+                            selectedVacancyForDetail = vacancy
+                            showVacancyDetailDialog = true
+                        }
+                    )
+                }
+
                 is Screen.PublishVacancy -> {
                     PublishVacancyScreen(
                         viewModel = viewModel,
@@ -172,8 +188,18 @@ fun MainAppContainer(viewModel: AppViewModel) {
                             fontWeight = FontWeight.Bold,
                             color = VagaGreen
                         )
-                        IconButton(onClick = { showVacancyDetailDialog = false }) {
-                            Text("Fechar", fontWeight = FontWeight.Bold, color = VagaGreen, fontSize = 12.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val isFav = viewModel.favoriteVacancyIds.collectAsState().value.contains(vacancy.id)
+                            IconButton(onClick = { viewModel.toggleFavorite(vacancy.id) }) {
+                                Icon(
+                                    imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = "Favoritar",
+                                    tint = if (isFav) AccentRose else OutlineColor
+                                )
+                            }
+                            IconButton(onClick = { showVacancyDetailDialog = false }) {
+                                Text("Fechar", fontWeight = FontWeight.Bold, color = VagaGreen, fontSize = 12.sp)
+                            }
                         }
                     }
 

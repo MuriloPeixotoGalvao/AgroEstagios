@@ -76,4 +76,14 @@ interface AppDao {
 
     @Query("SELECT users.* FROM users INNER JOIN applications ON users.id = applications.candidateId WHERE applications.vacancyId = :vacancyId")
     fun getAppliedCandidatesForVacancy(vacancyId: Int): Flow<List<User>>
+
+    // Favorite Transactions
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addFavorite(favorite: FavoriteVacancy): Long
+
+    @Query("DELETE FROM favorites WHERE vacancyId = :vacancyId AND candidateId = :candidateId")
+    suspend fun removeFavorite(vacancyId: Int, candidateId: Int)
+
+    @Query("SELECT * FROM favorites WHERE candidateId = :candidateId")
+    fun getFavoritesForCandidate(candidateId: Int): Flow<List<FavoriteVacancy>>
 }
