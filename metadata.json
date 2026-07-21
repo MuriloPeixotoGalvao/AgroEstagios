@@ -1,0 +1,6 @@
+{
+  "name": "Estagiagros",
+  "description": "Sua conexão direta com o futuro do agronegócio. Encontre vagas e gerencie seu perfil profissional ou crie vagas para a sua empresa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
