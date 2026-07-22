@@ -96,6 +96,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         seedInitialData()
+        viewModelScope.launch {
+            repository.syncVacanciesFromSupabase()
+        }
     }
 
     private fun seedInitialData() {
@@ -228,41 +231,42 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // Auth actions
     fun login(email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val user = repository.getUserByEmail(email)
-            if (user != null && user.password == password) {
-                _currentUser.value = user
-                onSuccess()
-            } else {
-                onError("Credenciais incorretas ou usuário não encontrado.")
+            val result = repository.signInWithSupabase(email, password)
+            result.onSuccess { user ->
+                if (user != null) {
+                    _currentUser.value = user
+                    repository.syncUserDataFromSupabase(user.id)
+                    onSuccess()
+                } else {
+                    onError("Credenciais incorretas ou usuário não encontrado.")
+                }
+            }.onFailure { ex ->
+                onError(ex.message ?: "Erro ao realizar login.")
             }
         }
     }
 
     fun registerCandidate(user: User, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val existing = repository.getUserByEmail(user.email)
-            if (existing != null) {
-                onError("E-mail já cadastrado.")
-                return@launch
+            val result = repository.signUpWithSupabase(user)
+            result.onSuccess { registeredUser ->
+                _currentUser.value = registeredUser
+                onSuccess()
+            }.onFailure { ex ->
+                onError(ex.message ?: "Erro ao cadastrar candidato.")
             }
-            val id = repository.insertUser(user)
-            val registered = user.copy(id = id.toInt())
-            _currentUser.value = registered
-            onSuccess()
         }
     }
 
     fun registerCompany(user: User, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val existing = repository.getUserByEmail(user.email)
-            if (existing != null) {
-                onError("E-mail corporativo já cadastrado.")
-                return@launch
+            val result = repository.signUpWithSupabase(user)
+            result.onSuccess { registeredUser ->
+                _currentUser.value = registeredUser
+                onSuccess()
+            }.onFailure { ex ->
+                onError(ex.message ?: "Erro ao cadastrar empresa.")
             }
-            val id = repository.insertUser(user)
-            val registered = user.copy(id = id.toInt())
-            _currentUser.value = registered
-            onSuccess()
         }
     }
 

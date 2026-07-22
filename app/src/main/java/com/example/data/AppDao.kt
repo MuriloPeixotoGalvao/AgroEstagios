@@ -27,7 +27,7 @@ interface AppDao {
     fun getExperiencesForUser(userId: Int): Flow<List<ExperienceItem>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExperience(experience: ExperienceItem)
+    suspend fun insertExperience(experience: ExperienceItem): Long
 
     @Query("DELETE FROM experiences WHERE id = :experienceId")
     suspend fun deleteExperience(experienceId: Int)
@@ -37,7 +37,7 @@ interface AppDao {
     fun getEducationsForUser(userId: Int): Flow<List<EducationItem>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertEducation(education: EducationItem)
+    suspend fun insertEducation(education: EducationItem): Long
 
     @Query("DELETE FROM educations WHERE id = :educationId")
     suspend fun deleteEducation(educationId: Int)
